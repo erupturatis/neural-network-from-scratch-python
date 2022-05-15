@@ -1,7 +1,9 @@
+
 import numpy as np
 import random
 import functions
 import activations
+from matplotlib import pyplot as plt
 
 class NeuralNetwork(object):
 
@@ -24,7 +26,7 @@ class NeuralNetwork(object):
     weights = list()
     biases = list()
     gradients = list()
-    learning_rate = 0.01
+    learning_rate = 0.0001
 
     def print_stuff(self, *args,):
         print(*args)
@@ -47,12 +49,12 @@ class NeuralNetwork(object):
     
 
     def initialize_weights(self):
-        self.weights.append(np.random.randn(1,self.neurons[0]))
+        self.weights.append(np.random.randn(1,self.neurons[0])/15)
         #input to first hidden layer
         for i in range(1,self.layers):
-            self.weights.append(np.random.randn(self.neurons[i-1],self.neurons[i]))
+            self.weights.append(np.random.randn(self.neurons[i-1],self.neurons[i])/15)
         #between hidden layers
-        self.weights.append(np.random.randn(self.neurons[self.layers-1],1))
+        self.weights.append(np.random.randn(self.neurons[self.layers-1],1)/5)
         
 
     def initialize_biases(self):
@@ -78,12 +80,12 @@ class NeuralNetwork(object):
 
     def generate_data(self, left:int, right:int, fnc:function):
         
-        for i in range(10):
+        for i in range(100000):
             x = random.uniform(left,right)   
             fx = fnc(x)
             self.data.append([x,fx])   
         self.data = np.array(self.data)
-        self.data = np.split(self.data,len(self.data)/10)
+        self.data = np.split(self.data,len(self.data)/50)
         # generates batches of 10 inputs/outputs pairs
 
 
@@ -130,53 +132,82 @@ class NeuralNetwork(object):
         # derivative of weighted sums ZL with respect to y_hat (predicted output)
         pred_grad = pred_grad * output_derivative
         # multiply with derivative of cost with respect to y_hat
-
-        gradient_output_weights = pred_grad * self.output[self.layers]
-        self.gradients.append(gradient_output_weights)
         previous_gradient = pred_grad
-        for i in range(self.layers,-1,-1):
-            new_gradient = previous_gradient * self.weights[i]
+
+        gradient_output_weights = (np.array(self.output[self.layers]).T)@(previous_gradient.T)
+        self.gradients = list()
+        self.gradients.append(gradient_output_weights)
+        
+        for i in range(self.layers,0,-1):
+            #print(previous_gradient)
+            new_gradient = self.weights[i]@previous_gradient 
             #derivative of Cost with respect with A l-1 -> needed to backprop further
             
+            
+            output_d = np.array([[self.derivative[i-1](j)] for j in self.output[i][0]])
+            previous_gradient = new_gradient * output_d
+            #computing @C/@aK L-1 * @aK L-1/@zK L-1
+            #print(previous_gradient)
+            #print(self.output[i-1])
+            gradient_output_weights = (np.array(self.output[i-1]).T)@(previous_gradient.T)
+            self.gradients.append(gradient_output_weights)
+            #print(gradient_output_weights)
+
+    
+        fixed_gradient = list()
+        #inversting gradients to have the same shape as the weights
+        for i in range(self.layers,-1,-1):
+            fixed_gradient.append(self.gradients[i])
         
-        # gradient for the first set of weights, multiply derivative of weight with respect to ZL (Al-1)
-        return
+        self.gradients = fixed_gradient
+        #print(self.weights)
+        for i in range(0,self.layers+1):
+            
+            #print(i, end="inceput -+++++++++++ \n")
+            self.gradients[i] = self.gradients[i]*self.learning_rate
+            #print(self.gradients[i])
+            #print("stop ************")
+            #print(self.weights[i])
+            self.weights[i] -= self.gradients[i]
+            #print(i, end="")
+            #print("---------------")
+
+
+
 
         
-
-        #calculating gradients for each weights
-        for i in range(self.layers,0,-1):
-            pass
-        pass
-
     def run(self):
-
+        i = 0
         for epoch in self.data:
+            i+=1
             cost = 0
             output_grad = 0 # means of output gradients with respect to 
             for element in epoch:
                 y_hat = self.forward_propagation(element[0]) # forward prop given the input
                 y = element[1]
-                cost = 1/2 * (y_hat - y)**2
+                cost += 1/2 * (y_hat - y)**2
                 output_derivative = (y_hat - y) # output derivative with respect to y_hat
-                
-
                 self.calculate_gradients(output_derivative)
-                return
+                #print(cost)
+
                 # 1/2 for derivative purposes
-            #cost = cost/(len(epoch))
-            #output_grad = output_grad/(len(epoch))
-            # mean sum of squares cost function
-            # now given the cost function, I will do the backpropagation god help me
-            #self.backpropagation()
+            cost = cost/(len(epoch))
+            #plt.plot(epoch,cost[0][0],marker='o')
+            #print("batch cost")
+            #print(cost[0][0])
+            plt.plot(i,cost[0][0],marker='o')
+            print(cost[0][0])
+        plt.show()
 
 
 def main():
-    nn = NeuralNetwork(2,5,7)
-    nn.generate_data(-2,2,functions.func3)
-    nn.set_funtions('leaky','leaky','liniar') 
+    nn = NeuralNetwork(4,15,10,5,2)
+    nn.generate_data(-5,5,functions.func5)
+    nn.set_funtions('leaky','leaky','leaky','leaky','liniar') 
     # last activation is liniar since approximating a function is a regression problem
-    nn.run()
+    nn.run() 
+  
+    
     pass
 
 
